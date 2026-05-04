@@ -1,76 +1,448 @@
-
-<!doctype html>
-<html lang="si">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Inventory Management - සරල පද්ධතිය</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>SAP B1 Style | Procurement & Inventory with PO Approval</title>
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #eef2ff; height: 100vh; overflow: hidden; }
+        /* LOGIN SCREEN */
+        .login-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: 0.3s;
+        }
+        .login-card {
+            background: white;
+            padding: 40px 32px;
+            border-radius: 40px;
+            width: 380px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .login-card h2 { color: #0f172a; margin-bottom: 8px; }
+        .login-card input { width: 100%; padding: 12px; margin: 12px 0; border-radius: 30px; border: 1.5px solid #cbd5e1; }
+        .login-card button { background: #2563eb; width: 100%; padding: 12px; border-radius: 40px; font-weight: bold; }
+        .error-msg { color: #dc2626; font-size: 0.8rem; margin-top: 8px; }
+        /* MAIN APP */
+        .app-container { display: none; height: 100vh; flex-direction: column; }
+        .sap-header {
+            background: #0a2b3e; color: white; padding: 8px 24px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+        .sidebar {
+            width: 280px; background: #1e293b; color: #e2e8f0;
+            overflow-y: auto; padding: 16px 0;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 14px; padding: 12px 24px;
+            margin: 4px 12px; border-radius: 12px; cursor: pointer; transition: 0.2s;
+        }
+        .nav-item:hover, .nav-item.active { background: #2563eb; color: white; }
+        .content-area {
+            flex: 1; padding: 24px; overflow-y: auto; background: #f1f5f9;
+        }
+        .card-panel {
+            background: white; border-radius: 24px; padding: 20px 24px;
+            margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .form-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+        .form-group { flex: 1; min-width: 160px; }
+        label { font-weight: 600; font-size: 0.7rem; text-transform: uppercase; color: #475569; }
+        input, select, textarea { width: 100%; padding: 10px 14px; border-radius: 14px; border: 1.5px solid #e2e8f0; }
+        button {
+            background: #1e293b; color: white; border: none; padding: 8px 18px;
+            border-radius: 40px; font-weight: 600; cursor: pointer; display: inline-flex;
+            align-items: center; gap: 8px;
+        }
+        button.primary { background: #2563eb; }
+        button.success { background: #10b981; }
+        button.warning { background: #eab308; color: #0f172a; }
+        button.danger { background: #ef4444; }
+        .badge {
+            padding: 4px 12px; border-radius: 40px; font-size: 0.7rem; font-weight: 600;
+        }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .badge-approved { background: #d1fae5; color: #065f46; }
+        .badge-rejected { background: #fee2e2; color: #991b1b; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 12px 8px; border-bottom: 1px solid #eef2ff; text-align: left; }
+        th { background: #f8fafc; font-weight: 700; }
+        .reorder-warning { background: #fef3c7; border-left: 4px solid #eab308; padding: 8px; margin-bottom: 12px; border-radius: 12px; }
+        @media (max-width: 768px) { .sidebar { position: fixed; left: -280px; z-index: 1000; } .sidebar.open { left: 0; } }
+    </style>
 </head>
-<body class="p-3">
-  <div class="container">
-    <h1 class="mb-3">Inventory Management (සාම්ප්‍රදායික)</h1>
-
-    <div class="row mb-3">
-      <div class="col-md-8">
-        <input id="search" class="form-control" placeholder="නමෙන් හෝ SKU අනුව සෙවීම..." />
-      </div>
-      <div class="col-md-4 text-end">
-        <button id="btn-refresh" class="btn btn-secondary">නවීක��ණය</button>
-        <button id="btn-export" class="btn btn-success">Export CSV</button>
-      </div>
+<body>
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+        <i class="fas fa-chalkboard-user" style="font-size: 48px; color: #2563eb;"></i>
+        <h2>SAP B1 Style</h2>
+        <p>Procurement & Inventory</p>
+        <input type="text" id="loginUser" placeholder="Username" value="procurement">
+        <input type="password" id="loginPass" placeholder="Password" value="sap123">
+        <button id="loginBtn"><i class="fas fa-key"></i> Login</button>
+        <div class="error-msg" id="loginError"></div>
+        <small style="display:block; margin-top:12px;">Demo: procurement/sap123 or manager/sap123</small>
     </div>
+</div>
 
-    <div class="mb-3">
-      <h5>Dashboard</h5>
-      <div id="stats" class="mb-2"></div>
+<div class="app-container" id="appContainer">
+    <div class="sap-header">
+        <div><i class="fas fa-database"></i> LAGINA SAP B1 | PROCUREMENT + STOCK</div>
+        <div><i class="fas fa-user-circle"></i> <span id="currentUserSpan">User</span> <button id="logoutBtn" class="small" style="background:#475569; margin-left:12px;">Logout</button></div>
     </div>
+    <div class="main-layout">
+        <div class="sidebar" id="sidebar">
+            <div class="nav-item active" data-section="po-dashboard"><i class="fas fa-file-invoice"></i> Purchase Orders</div>
+            <div class="nav-item" data-section="approval-panel"><i class="fas fa-check-double"></i> PO Approvals</div>
+            <div class="nav-item" data-section="stock-mgmt"><i class="fas fa-boxes"></i> Stock & Reorder</div>
+            <div class="nav-item" data-section="item-master"><i class="fas fa-cubes"></i> Item Master (Type)</div>
+            <div class="nav-item" data-section="supplier-master"><i class="fas fa-truck"></i> Suppliers</div>
+            <div class="nav-item" data-section="reports"><i class="fas fa-chart-pie"></i> Reports</div>
+        </div>
+        <div class="content-area" id="contentArea">
+            <!-- PO Dashboard with Create -->
+            <div id="po-dashboard" class="content-section">
+                <div class="card-panel">
+                    <h3><i class="fas fa-plus-circle"></i> Create Purchase Requisition (PO with Approval)</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>PO Number</label><input id="poNumber" placeholder="PR-2026-001"></div>
+                        <div class="form-group"><label>Item (Inventory/Service/Asset)</label><select id="poItemSelect"></select></div>
+                        <div class="form-group"><label>Unit Price (LKR)</label><input type="number" id="itemUnitPrice"></div>
+                        <div class="form-group"><label>Quantity</label><input type="number" id="poQty" value="1"></div>
+                        <div class="form-group"><label>Supplier</label><select id="poSupplierSelect"></select></div>
+                    </div>
+                    <div><strong>Total Value: </strong><span id="liveTotal">LKR 0</span>&nbsp;&nbsp;<span id="itemTypeHint" style="font-size:0.7rem; background:#e2e8f0; padding:4px 8px; border-radius:20px;"></span></div>
+                    <button id="createPoBtn" class="primary">Submit for Approval</button>
+                </div>
+                <div class="card-panel"><h3>Purchase Orders List (Pending / Approved / Received)</h3><div style="overflow-x:auto;"><table id="poTable"><thead><tr><th>PO No</th><th>Item</th><th>Qty/Type</th><th>Unit Price</th><th>Total</th><th>Supplier</th><th>Status</th><th>Actions</th></tr></thead><tbody id="poTableBody"></tbody></table></div></div>
+            </div>
+            <!-- Approval Panel -->
+            <div id="approval-panel" class="content-section" style="display:none;">
+                <div class="card-panel"><h3><i class="fas fa-gavel"></i> Pending Approvals</h3><table id="approvalTable"><thead><tr><th>PO No</th><th>Item</th><th>Qty</th><th>Total</th><th>Requester</th><th>Action</th></tr></thead><tbody id="approvalTableBody"></tbody></table></div>
+            </div>
+            <!-- Stock Management + Reorder Level -->
+            <div id="stock-mgmt" class="content-section" style="display:none;">
+                <div class="card-panel"><h3><i class="fas fa-chart-line"></i> Stock Items & Reorder Levels</h3><div id="reorderAlert"></div><table id="stockTable"><thead><tr><th>Item</th><th>Type</th><th>Current Stock</th><th>Reorder Level</th><th>Last Price</th><th>Action</th></tr></thead><tbody id="stockTableBody"></tbody></table><button id="refreshStockBtn" class="small">Refresh Levels</button></div>
+            </div>
+            <!-- Item Master (with Type & Reorder) -->
+            <div id="item-master" class="content-section" style="display:none;">
+                <div class="card-panel"><h3><i class="fas fa-microchip"></i> Item Master (Inventory / Service / Asset)</h3><div class="form-row"><div class="form-group"><label>Item Name</label><input id="newItemName"></div><div class="form-group"><label>SKU</label><input id="newItemSku"></div><div class="form-group"><label>Item Type</label><select id="itemType"><option value="Inventory">Inventory (Stock)</option><option value="Service">Service (Non-stock)</option><option value="Asset">Asset (Fixed)</option></select></div><div class="form-group"><label>Reorder Level</label><input id="reorderLevel" type="number" value="5"></div><div class="form-group"><label>Initial Stock</label><input id="initStock" type="number" value="0"></div><div class="form-group"><label>Standard Price</label><input id="itemPrice" type="number"></div></div><button id="createItemBtn" class="primary">Create Item</button><hr><h4>Sample Items (SAP B1 Demo)</h4><button id="loadSampleItems" class="warning">Load SAP Sample Data</button></div>
+            </div>
+            <div id="supplier-master" class="content-section" style="display:none;"><div class="card-panel"><h3>Suppliers</h3><table id="supplierTable"><thead><tr><th>Name</th><th>Contact</th><th></th></tr></thead><tbody id="supplierTableBody"></tbody></table><div class="form-row"><div class="form-group"><input id="supName" placeholder="Supplier Name"></div><div class="form-group"><input id="supContact" placeholder="Contact"></div><button id="addSupplierBtn">Register</button></div></div></div>
+            <div id="reports" class="content-section" style="display:none;"><div class="card-panel"><h3>Procurement Reports</h3><button id="genStockReport" class="primary">Stock Valuation Report</button><button id="genPOReport">PO Status Report</button><div id="reportPreview" style="margin-top:16px; background:#f8fafc; padding:16px; border-radius:20px;"></div></div></div>
+        </div>
+    </div>
+</div>
 
-    <table class="table table-striped" id="items-table">
-      <thead>
-        <tr>
-          <th>නම</th>
-          <th>SKU</th>
-          <th>ප්‍රමාණය</th>
-          <th>එකක මිල</th>
-          <th>ස්ථානය</th>
-          <th>සංස්කරණය</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+<script>
+    // ---------- Data Models ----------
+    let items = [];      // { id, name, sku, type, reorderLevel, stock, lastPrice }
+    let suppliers = [];
+    let purchaseOrders = []; // { id, poNumber, itemId, qty, unitPrice, totalValue, supplierId, status: 'pending_approval', 'approved', 'received', requestedBy }
+    let currentUser = { name: '', role: 'procurement' }; // role: procurement (can create), manager (can approve)
+    let issueLogs = [];
 
-    <hr/>
-    <h5>නව ද්‍රව්‍ය එකතු කිරීම / සංස්කරණය</h5>
-    <form id="item-form" class="row g-2">
-      <input type="hidden" id="item-id" />
-      <div class="col-md-4">
-        <input id="name" class="form-control" placeholder="නම" required />
-      </div>
-      <div class="col-md-2">
-        <input id="sku" class="form-control" placeholder="SKU" />
-      </div>
-      <div class="col-md-2">
-        <input id="quantity" type="number" class="form-control" placeholder="ප්‍රමාණය" />
-      </div>
-      <div class="col-md-2">
-        <input id="unit_price" type="number" step="0.01" class="form-control" placeholder="එකක මිල" />
-      </div>
-      <div class="col-md-2 text-end">
-        <button class="btn btn-primary" id="save-btn">නිර්යාත / සුරක්ෂිත</button>
-        <button class="btn btn-outline-secondary" id="clear-btn" type="button">Clear</button>
-      </div>
-    </form>
+    // Helper storage
+    function saveAll() {
+        localStorage.setItem('sap_items', JSON.stringify(items));
+        localStorage.setItem('sap_suppliers', JSON.stringify(suppliers));
+        localStorage.setItem('sap_pos', JSON.stringify(purchaseOrders));
+        localStorage.setItem('sap_issues', JSON.stringify(issueLogs));
+    }
+    function loadData() {
+        items = JSON.parse(localStorage.getItem('sap_items') || `[{"id":"i1","name":"Gaming Laptop","sku":"LAP-GX","type":"Inventory","reorderLevel":3,"stock":5,"lastPrice":450000},{"id":"i2","name":"IT Consulting","sku":"SVC-001","type":"Service","reorderLevel":0,"stock":0,"lastPrice":25000},{"id":"i3","name":"Office Desk","sku":"AST-DK","type":"Asset","reorderLevel":2,"stock":4,"lastPrice":35000}]`);
+        suppliers = JSON.parse(localStorage.getItem('sap_suppliers') || '[{"id":"s1","name":"TechGlobal","contact":"tech@global.com"},{"id":"s2","name":"Office Plus","contact":"office@lk"}]');
+        purchaseOrders = JSON.parse(localStorage.getItem('sap_pos') || `[{"id":"po1","poNumber":"PR-1001","itemId":"i1","qty":2,"unitPrice":450000,"totalValue":900000,"supplierId":"s1","status":"pending_approval","requestedBy":"procurement"},{"id":"po2","poNumber":"PR-1002","itemId":"i2","qty":5,"unitPrice":25000,"totalValue":125000,"supplierId":"s2","status":"approved","requestedBy":"procurement"}]`);
+        issueLogs = JSON.parse(localStorage.getItem('sap_issues') || '[]');
+        saveAll();
+    }
 
-    <hr/>
-    <h5>CSV ආයාත / ආයාත</h5>
-    <form id="import-form" enctype="multipart/form-data" class="d-flex gap-2">
-      <input type="file" id="csvfile" accept=".csv" class="form-control" />
-      <button class="btn btn-info" id="import-btn" type="button">Import</button>
-    </form>
+    function formatLKR(amt) { return new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(amt); }
 
-  </div>
+    // render all
+    function refreshUI() {
+        renderPoTable();
+        renderApprovalTable();
+        renderStockTable();
+        renderSupplierTable();
+        updateReorderAlerts();
+        populateItemDropdowns();
+        updateLiveTotal();
+    }
 
-  <script src="app.js"></script>
+    function populateItemDropdowns() {
+        let poItemSel = document.getElementById('poItemSelect');
+        if(poItemSel) {
+            poItemSel.innerHTML = items.map(i => `<option value="${i.id}" data-type="${i.type}" data-price="${i.lastPrice}">${i.name} [${i.type}] - ${formatLKR(i.lastPrice)}</option>`).join('');
+            poItemSel.onchange = function() {
+                let opt = poItemSel.options[poItemSel.selectedIndex];
+                let price = opt.getAttribute('data-price') || 0;
+                let itype = opt.getAttribute('data-type') || '';
+                document.getElementById('itemUnitPrice').value = price;
+                document.getElementById('itemTypeHint').innerHTML = `Type: ${itype} ${itype === 'Service' ? '(No stock tracking)' : (itype === 'Asset' ? '(Fixed asset)' : 'Inventory item')}`;
+                updateLiveTotal();
+            };
+            if(poItemSel.options.length) poItemSel.onchange();
+        }
+        let supSel = document.getElementById('poSupplierSelect');
+        if(supSel) supSel.innerHTML = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+    function updateLiveTotal() {
+        let qty = parseInt(document.getElementById('poQty')?.value) || 0;
+        let price = parseFloat(document.getElementById('itemUnitPrice')?.value) || 0;
+        let span = document.getElementById('liveTotal');
+        if(span) span.innerText = formatLKR(qty * price);
+    }
+
+    // PO Table with Approval/Receive
+    function renderPoTable() {
+        let tbody = document.getElementById('poTableBody'); if(!tbody) return;
+        tbody.innerHTML = '';
+        purchaseOrders.forEach(po => {
+            let item = items.find(i=>i.id===po.itemId);
+            let sup = suppliers.find(s=>s.id===po.supplierId);
+            let row = tbody.insertRow();
+            row.insertCell(0).innerHTML = `<strong>${po.poNumber}</strong>`;
+            row.insertCell(1).innerText = item?.name || 'N/A';
+            row.insertCell(2).innerText = `${po.qty} (${item?.type || '-'})`;
+            row.insertCell(3).innerText = formatLKR(po.unitPrice);
+            row.insertCell(4).innerHTML = `<b>${formatLKR(po.totalValue)}</b>`;
+            row.insertCell(5).innerText = sup?.name;
+            let statusClass = po.status === 'pending_approval' ? 'badge-pending' : (po.status === 'approved' ? 'badge-approved' : 'badge-received');
+            row.insertCell(6).innerHTML = `<span class="badge ${statusClass}">${po.status.replace('_',' ')}</span>`;
+            let actions = row.insertCell(7);
+            if(po.status === 'approved' && currentUser.role === 'procurement') {
+                let grnBtn = document.createElement('button'); grnBtn.className='small success'; grnBtn.innerHTML='Receive (GRN)'; grnBtn.onclick = () => receivePO(po.id);
+                actions.appendChild(grnBtn);
+            } else if(po.status === 'pending_approval' && currentUser.role === 'manager') {
+                actions.innerHTML = '<span style="color:orange;">Awaiting your approval</span>';
+            } else if(po.status === 'pending_approval') actions.innerHTML = '<i>Pending Approval</i>';
+            else if(po.status === 'received') actions.innerHTML = '<i class="fas fa-check-circle"></i> Completed';
+        });
+    }
+
+    function receivePO(poId) {
+        let po = purchaseOrders.find(p=>p.id===poId);
+        if(!po || po.status !== 'approved') return alert("Cannot receive: PO not approved.");
+        let item = items.find(i=>i.id===po.itemId);
+        if(item && item.type === 'Inventory') {
+            item.stock = (item.stock || 0) + po.qty;
+            if(po.unitPrice > 0) item.lastPrice = po.unitPrice;
+        } else if(item && item.type === 'Asset') {
+            // Asset: just increase asset count (track as stock)
+            item.stock = (item.stock || 0) + po.qty;
+        } else if(item && item.type === 'Service') {
+            // no stock increment but log
+        }
+        po.status = 'received';
+        saveAll();
+        refreshUI();
+        alert(`GRN Success: ${po.qty} x ${item?.name} added.`);
+    }
+
+    // Approval Panel
+    function renderApprovalTable() {
+        let tbody = document.getElementById('approvalTableBody'); if(!tbody) return;
+        let pendingPOs = purchaseOrders.filter(po => po.status === 'pending_approval');
+        tbody.innerHTML = '';
+        pendingPOs.forEach(po => {
+            let item = items.find(i=>i.id===po.itemId);
+            let row = tbody.insertRow();
+            row.insertCell(0).innerText = po.poNumber;
+            row.insertCell(1).innerText = item?.name;
+            row.insertCell(2).innerText = po.qty;
+            row.insertCell(3).innerText = formatLKR(po.totalValue);
+            row.insertCell(4).innerText = po.requestedBy || 'procurement';
+            let actionCell = row.insertCell(5);
+            let approveBtn = document.createElement('button'); approveBtn.className='small success'; approveBtn.innerHTML='Approve'; approveBtn.onclick = () => { po.status = 'approved'; saveAll(); refreshUI(); alert('PO Approved! Now can receive goods.'); };
+            let rejectBtn = document.createElement('button'); rejectBtn.className='small danger'; rejectBtn.innerHTML='Reject'; rejectBtn.onclick = () => { po.status = 'rejected'; saveAll(); refreshUI(); };
+            actionCell.append(approveBtn, rejectBtn);
+        });
+        if(pendingPOs.length === 0) tbody.innerHTML = '<tr><td colspan="6">No pending approvals</td></tr>';
+    }
+
+    // Stock with Reorder alerts
+    function renderStockTable() {
+        let tbody = document.getElementById('stockTableBody'); if(!tbody) return;
+        tbody.innerHTML = '';
+        items.forEach(it => {
+            let row = tbody.insertRow();
+            row.insertCell(0).innerText = it.name;
+            row.insertCell(1).innerText = it.type;
+            let stockVal = (it.type === 'Inventory' || it.type === 'Asset') ? (it.stock || 0) : 'N/A';
+            row.insertCell(2).innerHTML = `<b>${stockVal}</b> ${(it.type === 'Inventory' && it.stock <= it.reorderLevel) ? '⚠️ Reorder!' : ''}`;
+            row.insertCell(3).innerText = (it.type === 'Inventory') ? (it.reorderLevel || 5) : '-';
+            row.insertCell(4).innerText = formatLKR(it.lastPrice || 0);
+            let editBtn = document.createElement('button'); editBtn.className='small'; editBtn.innerHTML='Edit Reorder/Stock'; editBtn.onclick = () => {
+                let newReorder = prompt(`Reorder level for ${it.name}`, it.reorderLevel);
+                if(newReorder !== null && !isNaN(parseInt(newReorder))) it.reorderLevel = parseInt(newReorder);
+                let newStock = prompt(`Stock count (${it.type})`, it.stock);
+                if(newStock !== null && !isNaN(parseInt(newStock)) && (it.type === 'Inventory' || it.type === 'Asset')) it.stock = parseInt(newStock);
+                saveAll(); refreshUI();
+            };
+            row.insertCell(5).appendChild(editBtn);
+        });
+    }
+    function updateReorderAlerts() {
+        let alertDiv = document.getElementById('reorderAlert');
+        if(!alertDiv) return;
+        let lowStock = items.filter(i => i.type === 'Inventory' && i.stock <= i.reorderLevel);
+        if(lowStock.length) {
+            alertDiv.innerHTML = `<div class="reorder-warning"><i class="fas fa-exclamation-triangle"></i> Reorder Alert: ${lowStock.map(i=>i.name).join(', ')}</div>`;
+        } else alertDiv.innerHTML = '';
+    }
+
+    function renderSupplierTable() {
+        let tbody = document.getElementById('supplierTableBody'); if(!tbody) return;
+        tbody.innerHTML = '';
+        suppliers.forEach(s => {
+            let row = tbody.insertRow();
+            row.insertCell(0).innerText = s.name;
+            row.insertCell(1).innerText = s.contact;
+            let delBtn = document.createElement('button'); delBtn.className='small danger'; delBtn.innerHTML='Delete'; delBtn.onclick = () => { suppliers = suppliers.filter(x=>x.id!==s.id); saveAll(); refreshUI(); };
+            row.insertCell(2).appendChild(delBtn);
+        });
+    }
+
+    // Create PO with Approval workflow
+    function createPO() {
+        if(currentUser.role !== 'procurement') { alert("Only procurement can create purchase requisitions."); return; }
+        let poNum = document.getElementById('poNumber').value.trim();
+        let itemId = document.getElementById('poItemSelect').value;
+        let qty = parseInt(document.getElementById('poQty').value);
+        let price = parseFloat(document.getElementById('itemUnitPrice').value);
+        let supId = document.getElementById('poSupplierSelect').value;
+        if(!poNum || !itemId || qty<=0 || price<0) { alert("Valid details required"); return; }
+        if(purchaseOrders.some(p=>p.poNumber===poNum)) { alert("PO Number exists"); return; }
+        let total = qty*price;
+        let newPO = {
+            id: 'po'+Date.now(),
+            poNumber: poNum,
+            itemId, qty, unitPrice:price, totalValue:total,
+            supplierId: supId,
+            status: 'pending_approval',
+            requestedBy: currentUser.name
+        };
+        purchaseOrders.push(newPO);
+        saveAll();
+        refreshUI();
+        document.getElementById('poNumber').value = 'PR-'+Math.floor(Math.random()*9000+1000);
+        alert(`Purchase Requisition ${poNum} submitted for Manager Approval.`);
+    }
+
+    // Create Item with type + reorder
+    function createItem() {
+        let name = document.getElementById('newItemName').value.trim();
+        let sku = document.getElementById('newItemSku').value.trim();
+        let type = document.getElementById('itemType').value;
+        let reorder = parseInt(document.getElementById('reorderLevel').value);
+        let stock = parseInt(document.getElementById('initStock').value);
+        let price = parseFloat(document.getElementById('itemPrice').value);
+        if(!name || !sku) { alert("Name & SKU Required"); return; }
+        items.push({
+            id: 'i'+Date.now(),
+            name, sku, type,
+            reorderLevel: isNaN(reorder)?5:reorder,
+            stock: (type === 'Inventory' || type === 'Asset') ? (isNaN(stock)?0:stock) : 0,
+            lastPrice: isNaN(price)?0:price
+        });
+        saveAll(); refreshUI();
+        document.getElementById('newItemName').value = ''; document.getElementById('newItemSku').value = '';
+    }
+
+    function addSupplier() {
+        let name = document.getElementById('supName').value.trim();
+        let contact = document.getElementById('supContact').value.trim();
+        if(!name) return;
+        suppliers.push({ id:'s'+Date.now(), name, contact:contact||'-' });
+        saveAll(); refreshUI();
+        document.getElementById('supName').value=''; document.getElementById('supContact').value='';
+    }
+
+    function loadSampleSAPData() {
+        items.push({ id:'i_sap1', name:'Laptop Dell', sku:'DEL-XPS', type:'Inventory', reorderLevel:2, stock:3, lastPrice:275000 });
+        items.push({ id:'i_sap2', name:'Cloud Subscription', sku:'SVC-AWS', type:'Service', reorderLevel:0, stock:0, lastPrice:150000 });
+        items.push({ id:'i_sap3', name:'Conference Table', sku:'AST-TBL', type:'Asset', reorderLevel:1, stock:2, lastPrice:85000 });
+        saveAll(); refreshUI(); alert("SAP B1 Sample Items Added (Inventory, Service, Asset)");
+    }
+
+    // Reports
+    function showStockReport() {
+        let totalVal = items.filter(i => i.type === 'Inventory').reduce((s,i)=> s + (i.stock * i.lastPrice),0);
+        let html = `<h4>Stock Valuation (Inventory Items)</h4><p>Total Inventory Value: ${formatLKR(totalVal)}</p><table border="1" cellpadding="5">${items.filter(i=>i.type==='Inventory').map(i=>`<tr><td>${i.name}</td><td>${i.stock}</td><td>${formatLKR(i.lastPrice)}</td><td>${formatLKR(i.stock*i.lastPrice)}</td></tr>`).join('')}</table>`;
+        document.getElementById('reportPreview').innerHTML = html;
+    }
+    function showPOReport() {
+        let pending = purchaseOrders.filter(p=>p.status==='pending_approval');
+        let approved = purchaseOrders.filter(p=>p.status==='approved');
+        let received = purchaseOrders.filter(p=>p.status==='received');
+        document.getElementById('reportPreview').innerHTML = `<h4>PO Workflow Report</h4><p>Pending Approval: ${pending.length} | Approved: ${approved.length} | Received: ${received.length}</p><table border="1">${purchaseOrders.map(p=>`<tr><td>${p.poNumber}</td><td>${formatLKR(p.totalValue)}</td><td>${p.status}</td></tr>`).join('')}</table>`;
+    }
+
+    // Authentication & Navigation
+    function initAuth() {
+        document.getElementById('loginBtn').onclick = () => {
+            let user = document.getElementById('loginUser').value;
+            let pass = document.getElementById('loginPass').value;
+            if((user === 'procurement' && pass === 'sap123') || (user === 'manager' && pass === 'sap123')) {
+                currentUser.name = user;
+                currentUser.role = (user === 'manager') ? 'manager' : 'procurement';
+                document.getElementById('currentUserSpan').innerText = `${currentUser.name} (${currentUser.role})`;
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('appContainer').style.display = 'flex';
+                // If manager show approval tab visibility
+                refreshUI();
+                // default open dashboard
+                showSection('po-dashboard');
+            } else { document.getElementById('loginError').innerText = 'Invalid credentials'; }
+        };
+        document.getElementById('logoutBtn').onclick = () => { document.getElementById('loginOverlay').style.display = 'flex'; document.getElementById('appContainer').style.display = 'none'; };
+    }
+
+    function showSection(sectionId) {
+        document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
+        document.getElementById(sectionId).style.display = 'block';
+        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+        document.querySelector(`.nav-item[data-section="${sectionId}"]`).classList.add('active');
+        if(sectionId === 'stock-mgmt') updateReorderAlerts();
+        if(sectionId === 'approval-panel' && currentUser.role !== 'manager') alert("Manager only! But you can view.");
+        populateItemDropdowns();
+    }
+
+    function bindEvents() {
+        document.querySelectorAll('.nav-item').forEach(nav => {
+            nav.addEventListener('click', () => showSection(nav.getAttribute('data-section')));
+        });
+        document.getElementById('createPoBtn').onclick = createPO;
+        document.getElementById('createItemBtn').onclick = createItem;
+        document.getElementById('addSupplierBtn').onclick = addSupplier;
+        document.getElementById('loadSampleItems').onclick = loadSampleSAPData;
+        document.getElementById('genStockReport').onclick = showStockReport;
+        document.getElementById('genPOReport').onclick = showPOReport;
+        document.getElementById('poQty').addEventListener('input', updateLiveTotal);
+        document.getElementById('itemUnitPrice').addEventListener('input', updateLiveTotal);
+        document.getElementById('refreshStockBtn').onclick = () => refreshUI();
+    }
+
+    loadData();
+    initAuth();
+    bindEvents();
+    refreshUI();
+</script>
 </body>
 </html>
